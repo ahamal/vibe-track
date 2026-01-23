@@ -1,0 +1,312 @@
+/* Stats window styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background-color: #f5f5f7;
+  color: #1d1d1f;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: 600;
+  flex: 1;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1d1d1f;
+}
+
+.date-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d2d2d7;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-btn:hover {
+  background: #f5f5f7;
+}
+
+select {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.date-range input[type="date"] {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+}
+
+.date-range button {
+  padding: 8px 16px;
+  font-size: 14px;
+  background: #0071e3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Today's Progress */
+.today-progress {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.progress-ring-container {
+  position: relative;
+  width: 150px;
+  height: 150px;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.progress-text span:first-child {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.progress-label {
+  font-size: 13px;
+  color: #6e6e73;
+}
+
+.today-stats {
+  display: flex;
+  gap: 32px;
+  flex: 1;
+  justify-content: center;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 600;
+  color: #0071e3;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #6e6e73;
+}
+
+/* Charts */
+.chart-container {
+  position: relative;
+  height: 250px;
+}
+
+.chart-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.pie-chart {
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
+}
+
+.project-list {
+  flex: 1;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f5;
+}
+
+.project-item:last-child {
+  border-bottom: none;
+}
+
+.project-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 12px;
+}
+
+.project-name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.project-time {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6e6e73;
+}
+
+/* Summary Stats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 24px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-item .stat-value {
+  font-size: 32px;
+}
+
+/* Export */
+.export-section {
+  text-align: center;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.export-btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  background: white;
+  border: 1px solid #d2d2d7;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  background: #f5f5f7;
+  border-color: #0071e3;
+  color: #0071e3;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .today-progress {
+    flex-direction: column;
+  }
+
+  .today-stats {
+    width: 100%;
+  }
+
+  .chart-row {
+    flex-direction: column;
+  }
+
+  .pie-chart {
+    width: 100%;
+    margin: 0 auto;
+  }
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1c1c1e;
+    color: #f5f5f7;
+  }
+
+  h1, h2 {
+    color: #f5f5f7;
+  }
+
+  .card {
+    background: #2c2c2e;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .nav-btn, select, .date-range input[type="date"], .export-btn {
+    background: #3a3a3c;
+    border-color: #48484a;
+    color: #f5f5f7;
+  }
+
+  .nav-btn:hover, .export-btn:hover {
+    background: #48484a;
+  }
+
+  .project-item {
+    border-bottom-color: #3a3a3c;
+  }
+
+  .stat-label, .progress-label, .project-time {
+    color: #98989d;
+  }
+}

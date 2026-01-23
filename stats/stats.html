@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'">
+  <title>Work Tracker Statistics</title>
+  <link rel="stylesheet" href="stats.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Work Statistics</h1>
+      <div class="date-controls">
+        <button id="prevPeriod" class="nav-btn">&larr;</button>
+        <select id="periodSelect">
+          <option value="week">This Week</option>
+          <option value="month" selected>This Month</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <button id="nextPeriod" class="nav-btn">&rarr;</button>
+      </div>
+      <div id="customDateRange" class="date-range" style="display: none;">
+        <input type="date" id="startDate">
+        <span>to</span>
+        <input type="date" id="endDate">
+        <button id="applyDateRange">Apply</button>
+      </div>
+    </header>
+
+    <!-- Today's Progress -->
+    <section class="card today-progress">
+      <div class="progress-ring-container">
+        <canvas id="goalProgressChart" width="150" height="150"></canvas>
+        <div class="progress-text">
+          <span id="todayWorkTime">0h 0m</span>
+          <span class="progress-label">of <span id="goalTime">8h</span></span>
+        </div>
+      </div>
+      <div class="today-stats">
+        <div class="stat">
+          <span class="stat-value" id="todayPercentage">0%</span>
+          <span class="stat-label">Goal Progress</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="todaySessions">0</span>
+          <span class="stat-label">Sessions</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="currentStreak">0</span>
+          <span class="stat-label">Day Streak</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Work Time Over Time -->
+    <section class="card">
+      <h2>Work Time Trend</h2>
+      <div class="chart-container">
+        <canvas id="workTimeChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Daily Comparison -->
+    <section class="card">
+      <h2>Daily Comparison</h2>
+      <div class="chart-container">
+        <canvas id="dailyComparisonChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Project Breakdown -->
+    <section class="card">
+      <h2>Time by Project</h2>
+      <div class="chart-row">
+        <div class="chart-container pie-chart">
+          <canvas id="projectPieChart"></canvas>
+        </div>
+        <div class="project-list" id="projectList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Summary Stats -->
+    <section class="card summary-stats">
+      <h2>Period Summary</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-value" id="totalWorkTime">0h</span>
+          <span class="stat-label">Total Work Time</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="avgDailyTime">0h</span>
+          <span class="stat-label">Daily Average</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="totalSessions">0</span>
+          <span class="stat-label">Total Sessions</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="goalsReached">0</span>
+          <span class="stat-label">Goals Reached</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Export -->
+    <section class="card export-section">
+      <h2>Export Data</h2>
+      <div class="export-buttons">
+        <button id="exportCSV" class="export-btn">Export to CSV</button>
+        <button id="exportJSON" class="export-btn">Export to JSON</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="stats.js"></script>
+</body>
+</html>
