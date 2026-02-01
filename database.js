@@ -89,10 +89,28 @@ class WorkTrackerDB {
         sessions_count INTEGER DEFAULT 0,
         productive_seconds INTEGER DEFAULT 0,
         projects_json TEXT,
+        last_activity_id INTEGER DEFAULT 0,
+        last_activity_timestamp TEXT,
+        is_session_open INTEGER DEFAULT 0,
+        open_session_start TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
       )
     `);
+
+    // Add new columns to existing table if they don't exist
+    try {
+      this.db.exec(`ALTER TABLE daily_summary ADD COLUMN last_activity_id INTEGER DEFAULT 0`);
+    } catch (e) { /* column already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE daily_summary ADD COLUMN last_activity_timestamp TEXT`);
+    } catch (e) { /* column already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE daily_summary ADD COLUMN is_session_open INTEGER DEFAULT 0`);
+    } catch (e) { /* column already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE daily_summary ADD COLUMN open_session_start TEXT`);
+    } catch (e) { /* column already exists */ }
 
     // Migration status table
     this.db.exec(`
@@ -420,33 +438,63 @@ class WorkTrackerDB {
     return null;
   }
 
-  // Get total work time for a date from activity log
+  // Get the latest activity ID for a date
+  getLatestActivityId(date) {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT MAX(id) as max_id FROM activity_log
+        WHERE date(timestamp) = ?
+      `);
+      const result = stmt.get(date);
+      return result ? result.max_id : 0;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  // Get activities after a specific ID for a date
+  getActivitiesAfterId(date, afterId) {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM activity_log
+        WHERE date(timestamp) = ? AND id > ?
+        ORDER BY timestamp ASC
+      `);
+      return stmt.all(date, afterId);
+    } catch (error) {
+      console.error('Error getting activities after ID:', error);
+      return [];
+    }
+  }
+
+  // Calculate work time for a specific date (always fresh, no caching)
   calculateWorkTimeForDate(date, productiveApps, productiveWebsites) {
     if (!this.initialized && !this.init()) return null;
 
     try {
+      // Get all activities for the date
       const activities = this.getActivityForDate(date);
       if (activities.length === 0) return null;
 
       let totalWorkSeconds = 0;
+      let sessionsCount = 0;
       let isAfk = false;
-      let lastTimestamp = null;
-      let lastWasProductive = false;
       let sessionStart = null;
-      const sessions = [];
+      let lastTimestamp = null;
 
       for (const activity of activities) {
         const timestamp = new Date(activity.timestamp);
+        lastTimestamp = timestamp;
 
-        // Handle AFK
+        // Handle AFK events
         if (activity.is_afk) {
           if (activity.afk_type === 'start') {
-            // End current session if any
+            // End current session if we have one
             if (sessionStart && !isAfk) {
               const duration = (timestamp - sessionStart) / 1000;
               if (duration > 0) {
-                sessions.push({ start: sessionStart, end: timestamp, duration });
                 totalWorkSeconds += duration;
+                sessionsCount++;
               }
               sessionStart = null;
             }
@@ -454,62 +502,86 @@ class WorkTrackerDB {
           } else if (activity.afk_type === 'end') {
             isAfk = false;
           }
-          lastTimestamp = timestamp;
           continue;
         }
 
+        // Skip if user is AFK
         if (isAfk) continue;
 
-        // Check if productive
-        const isProductive = this.isProductiveActivity(activity.app_name, activity.window_title, productiveApps, productiveWebsites);
+        // Check if this activity is productive
+        const isProductive = this.isProductiveActivity(
+          activity.app_name, activity.window_title, productiveApps, productiveWebsites
+        );
 
         if (isProductive) {
+          // Start a new session if we don't have one
           if (!sessionStart) {
             sessionStart = timestamp;
           }
         } else if (sessionStart) {
-          // End productive session
+          // End the current session
           const duration = (timestamp - sessionStart) / 1000;
           if (duration > 0) {
-            sessions.push({ start: sessionStart, end: timestamp, duration });
             totalWorkSeconds += duration;
+            sessionsCount++;
           }
           sessionStart = null;
         }
-
-        lastTimestamp = timestamp;
-        lastWasProductive = isProductive;
       }
 
-      // Handle ongoing session
+      // Handle ongoing session (if still productive at end of log)
       if (sessionStart && !isAfk) {
         const now = new Date();
         const todayStr = now.toISOString().split('T')[0];
         if (date === todayStr) {
-          // Use current time for today
+          // For today, count time up to now
           const duration = (now - sessionStart) / 1000;
           if (duration > 0) {
-            sessions.push({ start: sessionStart, end: now, duration });
             totalWorkSeconds += duration;
+            // Don't increment sessionsCount since session is ongoing
           }
         } else if (lastTimestamp) {
-          // Use last timestamp for past days
+          // For past days, count up to last activity
           const duration = (lastTimestamp - sessionStart) / 1000;
           if (duration > 0) {
-            sessions.push({ start: sessionStart, end: lastTimestamp, duration });
             totalWorkSeconds += duration;
+            sessionsCount++;
           }
         }
       }
 
       return {
         totalWorkSeconds,
-        sessions,
-        sessionsCount: sessions.length
+        sessions: [],
+        sessionsCount
       };
     } catch (error) {
       console.error('Error calculating work time:', error);
       return null;
+    }
+  }
+
+  // Save daily summary cache with session state
+  saveDailySummaryCache(date, totalWorkSeconds, sessionsCount, lastActivityId, isSessionOpen, openSessionStart) {
+    if (!this.initialized && !this.init()) return false;
+
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO daily_summary (date, total_work_seconds, sessions_count, last_activity_id, is_session_open, open_session_start, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(date) DO UPDATE SET
+          total_work_seconds = excluded.total_work_seconds,
+          sessions_count = excluded.sessions_count,
+          last_activity_id = excluded.last_activity_id,
+          is_session_open = excluded.is_session_open,
+          open_session_start = excluded.open_session_start,
+          updated_at = datetime('now')
+      `);
+      stmt.run(date, totalWorkSeconds, sessionsCount, lastActivityId, isSessionOpen ? 1 : 0, openSessionStart);
+      return true;
+    } catch (error) {
+      console.error('Error saving daily summary cache:', error);
+      return false;
     }
   }
 

@@ -1,5 +1,4 @@
 // activityTracker.js - Module to record user activity
-const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { config } = require('./config');
@@ -10,21 +9,11 @@ const { detector } = require('./crossPlatform');
 // State
 let isAFK = false;
 let trackingInterval = null;
-let logFilePath = null;
 let cfg = null;
 
-// Set up the log file path in user's home directory
-function setupLogFile() {
-  const homeDir = os.homedir();
-  const appDataDir = path.join(homeDir, '.worktracker');
-
-  // Create app data directory if it doesn't exist
-  if (!fs.existsSync(appDataDir)) {
-    fs.mkdirSync(appDataDir, { recursive: true });
-  }
-
-  logFilePath = path.join(appDataDir, 'activity_log.txt');
-  return logFilePath;
+// Get the data directory path (for legacy compatibility)
+function getDataDir() {
+  return path.join(os.homedir(), '.worktracker');
 }
 
 // Load configuration
@@ -45,12 +34,19 @@ function getTrackingInterval() {
   return cfg.trackingIntervalSeconds || 30;
 }
 
-// Log activity to both text file and database
+// Log activity to database
 async function logActivity() {
-  if (!logFilePath) {
-    logFilePath = setupLogFile();
-  }
   if (!cfg) loadConfig();
+
+  // Ensure database is initialized
+  if (!db.isAvailable()) {
+    console.error('Database not available for logging');
+    return;
+  }
+  if (!db.initialized && !db.init()) {
+    console.error('Failed to initialize database');
+    return;
+  }
 
   try {
     // Check if user is idle
@@ -63,14 +59,7 @@ async function logActivity() {
         isAFK = true;
         const timestamp = new Date().toISOString();
         console.log(`${timestamp}: User went AFK`);
-
-        // Log to text file
-        fs.appendFileSync(logFilePath, `${timestamp}: --- AFK START ---\n`);
-
-        // Log to database
-        if (db.isAvailable() && db.initialized) {
-          db.logActivity(timestamp, null, null, true, 'start', null);
-        }
+        db.logActivity(timestamp, null, null, true, 'start', null);
       }
       return; // Skip logging if user is AFK
     } else if (isAFK) {
@@ -78,14 +67,7 @@ async function logActivity() {
       isAFK = false;
       const timestamp = new Date().toISOString();
       console.log(`${timestamp}: User returned from AFK`);
-
-      // Log to text file
-      fs.appendFileSync(logFilePath, `${timestamp}: --- AFK END ---\n`);
-
-      // Log to database
-      if (db.isAvailable() && db.initialized) {
-        db.logActivity(timestamp, null, null, true, 'end', null);
-      }
+      db.logActivity(timestamp, null, null, true, 'end', null);
     }
 
     // User is active, log the current application
@@ -104,17 +86,9 @@ async function logActivity() {
     const project = projects.detectProject(windowTitle, appName);
 
     const timestamp = new Date().toISOString();
-    const logEntry = `${timestamp}: App: ${appName}, Window: ${windowTitle}\n`;
+    db.logActivity(timestamp, appName, windowTitle, false, null, project);
 
-    // Log to text file
-    fs.appendFileSync(logFilePath, logEntry);
-
-    // Log to database
-    if (db.isAvailable() && db.initialized) {
-      db.logActivity(timestamp, appName, windowTitle, false, null, project);
-    }
-
-    console.log(logEntry.trim());
+    console.log(`${timestamp}: App: ${appName}, Window: ${windowTitle}`);
   } catch (error) {
     console.error('Error logging activity:', error);
   }
@@ -122,11 +96,13 @@ async function logActivity() {
 
 // Start tracking function
 function startTracking() {
-  // Setup log file first
-  setupLogFile();
-
   // Load config
   loadConfig();
+
+  // Ensure database is initialized
+  if (db.isAvailable() && !db.initialized) {
+    db.init();
+  }
 
   // Only start if not already running
   if (!trackingInterval) {
@@ -139,7 +115,7 @@ function startTracking() {
 
     const idleThreshold = getIdleThreshold();
     console.log(`Activity tracking started. Checking every ${intervalSeconds} seconds with AFK threshold set to ${idleThreshold} seconds (${idleThreshold / 60} minutes).`);
-    console.log(`Logging to: ${logFilePath}`);
+    console.log(`Data stored in: ${getDataDir()}`);
 
     return true;
   }
@@ -159,12 +135,9 @@ function stopTracking() {
   return false;
 }
 
-// Get log file path
+// Get log file path (legacy - returns data directory for compatibility)
 function getLogFilePath() {
-  if (!logFilePath) {
-    logFilePath = setupLogFile();
-  }
-  return logFilePath;
+  return path.join(getDataDir(), 'activity_log.txt');
 }
 
 // Check if currently AFK

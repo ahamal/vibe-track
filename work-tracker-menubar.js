@@ -5,7 +5,7 @@ const Tray = electron.Tray;
 const nativeImage = electron.nativeImage;
 const dialog = electron.dialog;
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs'); // Still needed for icon file check
 
 // Import modules
 const activityTracker = require('./activityTracker');
@@ -225,20 +225,7 @@ async function exportData(format) {
 // Function to show weekly summary
 async function showWeeklySummary() {
   try {
-    const logFilePath = activityTracker.getLogFilePath();
-
-    // Check if file exists
-    if (!fs.existsSync(logFilePath)) {
-      dialog.showMessageBox({
-        type: 'info',
-        title: 'Work Time Tracker',
-        message: 'No data available',
-        detail: `Log file not found at ${logFilePath}`
-      });
-      return;
-    }
-
-    const results = await getWorkSummary(logFilePath, 7);
+    const results = await getWorkSummary(null, 7);
 
     if (results.length === 0) {
       dialog.showMessageBox({
@@ -274,7 +261,6 @@ async function showWeeklySummary() {
 
     summaryText += `\nAverage daily work time: ${avgHours}h ${avgMinutes}m`;
     summaryText += `\nGoals reached this week: ${goalsReached}/7`;
-    summaryText += `\n\nLog file location: ${logFilePath}`;
 
     dialog.showMessageBox({
       type: 'info',
@@ -313,19 +299,10 @@ function showDailySummaryNotification() {
 // Function to update the work time in the menu bar
 async function updateWorkTime() {
   try {
-    const logFilePath = activityTracker.getLogFilePath();
     const cfg = config.getAll();
 
-    // Check if file exists
-    if (!fs.existsSync(logFilePath)) {
-      if (tray) {
-        tray.setTitle('Work: No data');
-        updateContextMenu();
-      }
-      return;
-    }
-
-    const result = await analyzeWorkTime(logFilePath);
+    // Get work time analysis from database (analyzeWorkTime no longer needs file path)
+    const result = await analyzeWorkTime(null);
     lastWorkData = result;
 
     // Update daily summary in database
@@ -367,17 +344,17 @@ async function updateWorkTime() {
 }
 
 // App ready event
-app.on('ready', function() {
+app.on('ready', function () {
   setTimeout(createTray, 100); // Small delay to ensure app is fully initialized
 });
 
-app.on('window-all-closed', function() {
+app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on('will-quit', function() {
+app.on('will-quit', function () {
   // Stop activity tracking before quitting
   if (activityTracker.isTracking()) {
     activityTracker.stopTracking();
@@ -391,7 +368,7 @@ app.on('will-quit', function() {
   }
 });
 
-app.on('before-quit', function() {
+app.on('before-quit', function () {
   isQuitting = true;
 });
 
