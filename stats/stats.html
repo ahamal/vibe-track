@@ -1,32 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
   <title>Work Tracker Statistics</title>
   <link rel="stylesheet" href="stats.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
+
 <body>
   <div class="container">
     <header>
       <h1>Work Statistics</h1>
-      <div class="date-controls">
-        <button id="prevPeriod" class="nav-btn">&larr;</button>
-        <select id="periodSelect">
-          <option value="week">This Week</option>
-          <option value="month" selected>This Month</option>
-          <option value="custom">Custom Range</option>
-        </select>
-        <button id="nextPeriod" class="nav-btn">&rarr;</button>
-      </div>
-      <div id="customDateRange" class="date-range" style="display: none;">
-        <input type="date" id="startDate">
-        <span>to</span>
-        <input type="date" id="endDate">
-        <button id="applyDateRange">Apply</button>
-      </div>
     </header>
 
     <!-- Today's Progress -->
@@ -54,19 +41,28 @@
       </div>
     </section>
 
-    <!-- Work Time Over Time -->
+    <!-- Daily Activity Heatmap -->
     <section class="card">
-      <h2>Work Time Trend</h2>
-      <div class="chart-container">
-        <canvas id="workTimeChart"></canvas>
+      <div class="heatmap-header">
+        <h2>Today's Activity</h2>
+        <div class="date-nav">
+          <button id="prevDay" class="nav-btn">←</button>
+          <span id="currentDate">Today</span>
+          <button id="nextDay" class="nav-btn">→</button>
+        </div>
       </div>
-    </section>
-
-    <!-- Daily Comparison -->
-    <section class="card">
-      <h2>Daily Comparison</h2>
-      <div class="chart-container">
-        <canvas id="dailyComparisonChart"></canvas>
+      <div class="daily-heatmap">
+        <div class="hour-labels" id="hourLabels"></div>
+        <div class="hour-blocks" id="hourBlocks"></div>
+      </div>
+      <div class="heatmap-legend">
+        <span class="legend-label">No activity</span>
+        <div class="legend-box level-0"></div>
+        <div class="legend-box level-1"></div>
+        <div class="legend-box level-2"></div>
+        <div class="legend-box level-3"></div>
+        <div class="legend-box level-4"></div>
+        <span class="legend-label">Full hour</span>
       </div>
     </section>
 
@@ -75,7 +71,7 @@
       <h2>Time by Project</h2>
       <div class="chart-row">
         <div class="chart-container pie-chart">
-          <canvas id="projectPieChart"></canvas>
+          <canvas id="projectPieChart" width="200" height="200"></canvas>
         </div>
         <div class="project-list" id="projectList">
           <!-- Populated by JS -->
@@ -85,7 +81,7 @@
 
     <!-- Summary Stats -->
     <section class="card summary-stats">
-      <h2>Period Summary</h2>
+      <h2>Summary</h2>
       <div class="stats-grid">
         <div class="stat-item">
           <span class="stat-value" id="totalWorkTime">0h</span>
@@ -118,4 +114,5 @@
 
   <script src="stats.js"></script>
 </body>
+
 </html>

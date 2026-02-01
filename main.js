@@ -162,6 +162,85 @@ ipcMain.handle('get-stats', async (event, { startDate, endDate }) => {
   };
 });
 
+// IPC Handler for hourly stats (24-hour heatmap)
+ipcMain.handle('get-hourly-stats', async (event, { date }) => {
+  const hourlyMinutes = Array(24).fill(0);
+
+  if (!db.isAvailable() || !db.initialized) {
+    return hourlyMinutes;
+  }
+
+  const cfg = config.getAll();
+  const activities = db.getActivityForDate(date);
+
+  if (activities.length === 0) {
+    return hourlyMinutes;
+  }
+
+  let isAfk = false;
+  let sessionStart = null;
+
+  for (const activity of activities) {
+    const timestamp = new Date(activity.timestamp);
+
+    if (activity.is_afk) {
+      if (activity.afk_type === 'start') {
+        if (sessionStart && !isAfk) {
+          addTimeToHours(hourlyMinutes, sessionStart, timestamp);
+        }
+        sessionStart = null;
+        isAfk = true;
+      } else if (activity.afk_type === 'end') {
+        isAfk = false;
+      }
+      continue;
+    }
+
+    if (isAfk) continue;
+
+    const isProductive = db.isProductiveActivity(
+      activity.app_name, activity.window_title,
+      cfg.productiveApps, cfg.productiveWebsites
+    );
+
+    if (isProductive) {
+      if (!sessionStart) {
+        sessionStart = timestamp;
+      }
+    } else if (sessionStart) {
+      addTimeToHours(hourlyMinutes, sessionStart, timestamp);
+      sessionStart = null;
+    }
+  }
+
+  // Handle ongoing session
+  if (sessionStart && !isAfk) {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (date === todayStr) {
+      addTimeToHours(hourlyMinutes, sessionStart, now);
+    }
+  }
+
+  return hourlyMinutes;
+});
+
+// Helper: Add time between start and end to hourly buckets
+function addTimeToHours(hourlyMinutes, start, end) {
+  let current = new Date(start);
+  while (current < end) {
+    const hour = current.getHours();
+    const endOfHour = new Date(current);
+    endOfHour.setMinutes(59, 59, 999);
+
+    const segmentEnd = endOfHour < end ? endOfHour : end;
+    const minutes = (segmentEnd - current) / 60000;
+    hourlyMinutes[hour] += Math.round(minutes);
+
+    current = new Date(endOfHour.getTime() + 1);
+  }
+}
+
 // Calculate streak (days in a row where goal was reached)
 function calculateStreak() {
   if (!db.isAvailable() || !db.initialized) return 0;

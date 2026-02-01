@@ -19,17 +19,12 @@ body {
 }
 
 header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
   margin-bottom: 24px;
 }
 
 h1 {
   font-size: 24px;
   font-weight: 600;
-  flex: 1;
 }
 
 h2 {
@@ -37,63 +32,6 @@ h2 {
   font-weight: 600;
   margin-bottom: 16px;
   color: #1d1d1f;
-}
-
-.date-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.nav-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid #d2d2d7;
-  background: white;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-btn:hover {
-  background: #f5f5f7;
-}
-
-select {
-  padding: 8px 12px;
-  font-size: 14px;
-  border: 1px solid #d2d2d7;
-  border-radius: 8px;
-  background: white;
-  cursor: pointer;
-}
-
-.date-range {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 8px;
-}
-
-.date-range input[type="date"] {
-  padding: 8px 12px;
-  font-size: 14px;
-  border: 1px solid #d2d2d7;
-  border-radius: 8px;
-}
-
-.date-range button {
-  padding: 8px 16px;
-  font-size: 14px;
-  background: #0071e3;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
 }
 
 .card {
@@ -160,16 +98,154 @@ select {
   color: #6e6e73;
 }
 
-/* Charts */
-.chart-container {
-  position: relative;
-  height: 250px;
+/* Daily Heatmap */
+.heatmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
+.heatmap-header h2 {
+  margin-bottom: 0;
+}
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.date-nav span {
+  min-width: 120px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d2d2d7;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-btn:hover {
+  background: #f5f5f7;
+}
+
+.daily-heatmap {
+  margin-bottom: 12px;
+}
+
+.hour-labels {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.hour-labels span {
+  text-align: center;
+  font-size: 10px;
+  color: #6e6e73;
+}
+
+.hour-blocks {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  height: 60px;
+}
+
+.hour-block {
+  position: relative;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.hour-block.level-0 {
+  background: linear-gradient(180deg, #f5f5f7 0%, #ebedf0 100%);
+}
+
+.hour-block.level-1 {
+  background: linear-gradient(180deg, #c8f7d0 0%, #9be9a8 100%);
+}
+
+.hour-block.level-2 {
+  background: linear-gradient(180deg, #69e07a 0%, #40c463 100%);
+}
+
+.hour-block.level-3 {
+  background: linear-gradient(180deg, #40c463 0%, #30a14e 100%);
+}
+
+.hour-block.level-4 {
+  background: linear-gradient(180deg, #30a14e 0%, #216e39 100%);
+}
+
+.hour-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 113, 227, 0.3);
+  border-radius: 0 0 4px 4px;
+  pointer-events: none;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  font-size: 11px;
+  color: #6e6e73;
+}
+
+.legend-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.legend-box.level-0 {
+  background: #ebedf0;
+}
+
+.legend-box.level-1 {
+  background: #9be9a8;
+}
+
+.legend-box.level-2 {
+  background: #40c463;
+}
+
+.legend-box.level-3 {
+  background: #30a14e;
+}
+
+.legend-box.level-4 {
+  background: #216e39;
+}
+
+/* Project Chart */
 .chart-row {
   display: flex;
   gap: 24px;
   align-items: flex-start;
+}
+
+.chart-container {
+  position: relative;
 }
 
 .pie-chart {
@@ -283,7 +359,8 @@ select {
     color: #f5f5f7;
   }
 
-  h1, h2 {
+  h1,
+  h2 {
     color: #f5f5f7;
   }
 
@@ -292,13 +369,15 @@ select {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 
-  .nav-btn, select, .date-range input[type="date"], .export-btn {
+  .nav-btn,
+  .export-btn {
     background: #3a3a3c;
     border-color: #48484a;
     color: #f5f5f7;
   }
 
-  .nav-btn:hover, .export-btn:hover {
+  .nav-btn:hover,
+  .export-btn:hover {
     background: #48484a;
   }
 
@@ -306,7 +385,19 @@ select {
     border-bottom-color: #3a3a3c;
   }
 
-  .stat-label, .progress-label, .project-time {
+  .stat-label,
+  .progress-label,
+  .project-time,
+  .hour-labels span,
+  .heatmap-legend {
     color: #98989d;
+  }
+
+  .hour-block.level-0 {
+    background: linear-gradient(180deg, #2d2d30 0%, #232326 100%);
+  }
+
+  .legend-box.level-0 {
+    background: #2d2d30;
   }
 }

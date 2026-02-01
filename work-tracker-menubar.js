@@ -111,7 +111,6 @@ function updateContextMenu(workData = null) {
     template = [
       ...template,
       { label: 'View Statistics', click: openStatsWindow },
-      { label: 'Weekly Summary', click: showWeeklySummary },
       { type: 'separator' },
       {
         label: 'Export Data',

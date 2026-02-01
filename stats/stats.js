@@ -1,16 +1,9 @@
 // stats.js - Statistics window renderer script
 const { ipcRenderer } = require('electron');
 
-// Chart instances
-let goalProgressChart = null;
-let workTimeChart = null;
-let dailyComparisonChart = null;
+// State
+let currentViewDate = new Date();
 let projectPieChart = null;
-
-// Current date range
-let currentPeriod = 'month';
-let currentStartDate = null;
-let currentEndDate = null;
 
 // Chart colors
 const CHART_COLORS = [
@@ -20,96 +13,134 @@ const CHART_COLORS = [
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  initializeDateRange();
+  initHourLabels();
   setupEventListeners();
   loadData();
 });
 
-// Initialize date range
-function initializeDateRange() {
-  const now = new Date();
-  currentEndDate = formatDate(now);
-
-  if (currentPeriod === 'week') {
-    const weekAgo = new Date(now);
-    weekAgo.setDate(weekAgo.getDate() - 6);
-    currentStartDate = formatDate(weekAgo);
-  } else {
-    const monthAgo = new Date(now);
-    monthAgo.setDate(monthAgo.getDate() - 29);
-    currentStartDate = formatDate(monthAgo);
+// Initialize hour labels (12am - 11pm)
+function initHourLabels() {
+  const container = document.getElementById('hourLabels');
+  for (let h = 0; h < 24; h++) {
+    const label = document.createElement('span');
+    const hour12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+    const ampm = h < 12 ? 'a' : 'p';
+    label.textContent = h % 3 === 0 ? `${hour12}${ampm}` : '';
+    container.appendChild(label);
   }
-
-  document.getElementById('startDate').value = currentStartDate;
-  document.getElementById('endDate').value = currentEndDate;
 }
 
 // Set up event listeners
 function setupEventListeners() {
-  // Period select
-  document.getElementById('periodSelect').addEventListener('change', (e) => {
-    currentPeriod = e.target.value;
-    const customRange = document.getElementById('customDateRange');
-
-    if (currentPeriod === 'custom') {
-      customRange.style.display = 'flex';
-    } else {
-      customRange.style.display = 'none';
-      initializeDateRange();
-      loadData();
-    }
-  });
-
-  // Navigation buttons
-  document.getElementById('prevPeriod').addEventListener('click', () => navigatePeriod(-1));
-  document.getElementById('nextPeriod').addEventListener('click', () => navigatePeriod(1));
-
-  // Custom date range
-  document.getElementById('applyDateRange').addEventListener('click', () => {
-    currentStartDate = document.getElementById('startDate').value;
-    currentEndDate = document.getElementById('endDate').value;
-    loadData();
-  });
-
-  // Export buttons
+  document.getElementById('prevDay').addEventListener('click', () => navigateDay(-1));
+  document.getElementById('nextDay').addEventListener('click', () => navigateDay(1));
   document.getElementById('exportCSV').addEventListener('click', () => exportData('csv'));
   document.getElementById('exportJSON').addEventListener('click', () => exportData('json'));
 }
 
-// Navigate period forward/backward
-function navigatePeriod(direction) {
-  const days = currentPeriod === 'week' ? 7 : 30;
-  const start = new Date(currentStartDate);
-  const end = new Date(currentEndDate);
+// Navigate to previous/next day
+function navigateDay(direction) {
+  currentViewDate.setDate(currentViewDate.getDate() + direction);
+  updateDateLabel();
+  loadDayData();
+}
 
-  start.setDate(start.getDate() + (direction * days));
-  end.setDate(end.getDate() + (direction * days));
+// Update date label
+function updateDateLabel() {
+  const today = new Date();
+  const todayStr = formatDate(today);
+  const viewStr = formatDate(currentViewDate);
 
-  currentStartDate = formatDate(start);
-  currentEndDate = formatDate(end);
-
-  document.getElementById('startDate').value = currentStartDate;
-  document.getElementById('endDate').value = currentEndDate;
-
-  loadData();
+  const label = document.getElementById('currentDate');
+  if (viewStr === todayStr) {
+    label.textContent = 'Today';
+  } else if (viewStr === formatDate(new Date(today.getTime() - 86400000))) {
+    label.textContent = 'Yesterday';
+  } else {
+    label.textContent = currentViewDate.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric'
+    });
+  }
 }
 
 // Load all data
 async function loadData() {
+  updateDateLabel();
+
   try {
+    const now = new Date();
+    const monthAgo = new Date(now);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+
     const data = await ipcRenderer.invoke('get-stats', {
-      startDate: currentStartDate,
-      endDate: currentEndDate
+      startDate: formatDate(monthAgo),
+      endDate: formatDate(now)
     });
 
     updateTodayProgress(data.today, data.config);
-    updateWorkTimeChart(data.dailySummaries);
-    updateDailyComparisonChart(data.dailySummaries, data.config);
     updateProjectChart(data.projectStats);
     updateSummaryStats(data.summary);
+
+    // Load hourly data for current view date
+    loadDayData();
   } catch (error) {
     console.error('Error loading stats:', error);
   }
+}
+
+// Load hourly data for the current view date
+async function loadDayData() {
+  try {
+    const dateStr = formatDate(currentViewDate);
+    const hourlyData = await ipcRenderer.invoke('get-hourly-stats', { date: dateStr });
+    renderDailyHeatmap(hourlyData);
+  } catch (error) {
+    console.error('Error loading hourly data:', error);
+    // Render empty heatmap if no data
+    renderDailyHeatmap(Array(24).fill(0));
+  }
+}
+
+// Render 24-hour daily heatmap
+function renderDailyHeatmap(hourlyData) {
+  const container = document.getElementById('hourBlocks');
+  container.innerHTML = '';
+
+  // Find max for scaling (cap at 60 min)
+  const maxMinutes = 60;
+
+  for (let h = 0; h < 24; h++) {
+    const minutes = hourlyData[h] || 0;
+
+    // Calculate level (0-4)
+    let level = 0;
+    if (minutes > 0) {
+      const ratio = minutes / maxMinutes;
+      if (ratio >= 0.8) level = 4;
+      else if (ratio >= 0.6) level = 3;
+      else if (ratio >= 0.4) level = 2;
+      else level = 1;
+    }
+
+    const block = document.createElement('div');
+    block.className = `hour-block level-${level}`;
+    block.title = `${formatHour(h)}: ${minutes}m`;
+
+    // Add visual intensity indicator
+    const fill = document.createElement('div');
+    fill.className = 'hour-fill';
+    fill.style.height = `${Math.min(100, (minutes / maxMinutes) * 100)}%`;
+    block.appendChild(fill);
+
+    container.appendChild(block);
+  }
+}
+
+// Format hour for display
+function formatHour(h) {
+  const hour12 = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  return `${hour12} ${ampm}`;
 }
 
 // Update today's progress
@@ -130,199 +161,83 @@ function updateTodayProgress(today, config) {
   document.getElementById('todaySessions').textContent = today.sessionsCount || 0;
   document.getElementById('currentStreak').textContent = today.streak || 0;
 
-  // Update progress ring
   updateProgressRing(percentage);
 }
 
-// Update progress ring chart
+// Update progress ring
 function updateProgressRing(percentage) {
-  const ctx = document.getElementById('goalProgressChart').getContext('2d');
+  const canvas = document.getElementById('goalProgressChart');
+  const ctx = canvas.getContext('2d');
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = 60;
+  const lineWidth = 12;
 
-  if (goalProgressChart) {
-    goalProgressChart.destroy();
-  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  goalProgressChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      datasets: [{
-        data: [percentage, 100 - percentage],
-        backgroundColor: [
-          percentage >= 100 ? '#34c759' : '#0071e3',
-          '#f0f0f5'
-        ],
-        borderWidth: 0
-      }]
-    },
-    options: {
-      cutout: '75%',
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: { enabled: false }
-      }
-    }
-  });
-}
+  // Background circle
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+  ctx.strokeStyle = '#f0f0f5';
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
 
-// Update work time trend chart
-function updateWorkTimeChart(dailySummaries) {
-  const ctx = document.getElementById('workTimeChart').getContext('2d');
-
-  const labels = dailySummaries.map(d => {
-    const date = new Date(d.date);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  });
-
-  const data = dailySummaries.map(d => Math.round((d.total_work_seconds || 0) / 3600 * 10) / 10);
-
-  if (workTimeChart) {
-    workTimeChart.destroy();
-  }
-
-  workTimeChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Work Hours',
-        data,
-        borderColor: '#0071e3',
-        backgroundColor: 'rgba(0, 113, 227, 0.1)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 3,
-        pointHoverRadius: 5
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Hours'
-          }
-        }
-      }
-    }
-  });
-}
-
-// Update daily comparison chart
-function updateDailyComparisonChart(dailySummaries, config) {
-  const ctx = document.getElementById('dailyComparisonChart').getContext('2d');
-  const goalHours = (config.dailyGoalMinutes || 480) / 60;
-
-  // Get last 7 days
-  const lastWeek = dailySummaries.slice(-7);
-
-  const labels = lastWeek.map(d => {
-    const date = new Date(d.date);
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
-  });
-
-  const data = lastWeek.map(d => Math.round((d.total_work_seconds || 0) / 3600 * 10) / 10);
-
-  if (dailyComparisonChart) {
-    dailyComparisonChart.destroy();
-  }
-
-  dailyComparisonChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Work Hours',
-        data,
-        backgroundColor: data.map(h => h >= goalHours ? '#34c759' : '#0071e3'),
-        borderRadius: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        annotation: {
-          annotations: {
-            goalLine: {
-              type: 'line',
-              yMin: goalHours,
-              yMax: goalHours,
-              borderColor: '#ff9500',
-              borderWidth: 2,
-              borderDash: [5, 5],
-              label: {
-                content: 'Goal',
-                enabled: true
-              }
-            }
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Hours'
-          }
-        }
-      }
-    }
-  });
+  // Progress arc
+  const startAngle = -Math.PI / 2;
+  const endAngle = startAngle + (2 * Math.PI * percentage / 100);
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+  ctx.strokeStyle = percentage >= 100 ? '#34c759' : '#0071e3';
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = 'round';
+  ctx.stroke();
 }
 
 // Update project pie chart
 function updateProjectChart(projectStats) {
-  const ctx = document.getElementById('projectPieChart').getContext('2d');
+  const canvas = document.getElementById('projectPieChart');
+  const ctx = canvas.getContext('2d');
   const projectList = document.getElementById('projectList');
 
   const projects = Object.entries(projectStats)
     .map(([name, data]) => ({ name, ...data }))
     .sort((a, b) => b.totalSeconds - a.totalSeconds)
-    .slice(0, 10); // Top 10 projects
+    .slice(0, 10);
 
-  const labels = projects.map(p => p.name);
-  const data = projects.map(p => Math.round(p.totalSeconds / 60)); // Minutes
+  const data = projects.map(p => p.totalSeconds);
   const colors = projects.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
 
-  if (projectPieChart) {
-    projectPieChart.destroy();
-  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (projects.length === 0) {
     projectList.innerHTML = '<p style="color: #6e6e73; font-style: italic;">No project data available</p>';
     return;
   }
 
-  projectPieChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: colors,
-        borderWidth: 0
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { display: false }
-      }
-    }
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = Math.min(centerX, centerY) - 10;
+  const total = data.reduce((a, b) => a + b, 0);
+  let startAngle = -Math.PI / 2;
+
+  data.forEach((value, i) => {
+    const sliceAngle = (value / total) * 2 * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+    ctx.closePath();
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+    startAngle += sliceAngle;
   });
 
-  // Update project list
+  // Donut hole
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius * 0.6, 0, 2 * Math.PI);
+  ctx.fillStyle = getComputedStyle(document.querySelector('.card')).backgroundColor || '#fff';
+  ctx.fill();
+
+  // Project list
   projectList.innerHTML = projects.map((p, i) => {
     const hours = Math.floor(p.totalSeconds / 3600);
     const mins = Math.floor((p.totalSeconds % 3600) / 60);
@@ -342,7 +257,6 @@ function updateProjectChart(projectStats) {
 function updateSummaryStats(summary) {
   const totalHours = Math.floor(summary.totalWorkSeconds / 3600);
   const totalMins = Math.floor((summary.totalWorkSeconds % 3600) / 60);
-
   const avgHours = Math.floor(summary.avgDailySeconds / 3600);
   const avgMins = Math.floor((summary.avgDailySeconds % 3600) / 60);
 
@@ -354,11 +268,15 @@ function updateSummaryStats(summary) {
 
 // Export data
 async function exportData(format) {
+  const now = new Date();
+  const monthAgo = new Date(now);
+  monthAgo.setDate(monthAgo.getDate() - 30);
+
   try {
     const result = await ipcRenderer.invoke('export-data', {
       format,
-      startDate: currentStartDate,
-      endDate: currentEndDate
+      startDate: formatDate(monthAgo),
+      endDate: formatDate(now)
     });
 
     if (result.success) {
@@ -370,7 +288,7 @@ async function exportData(format) {
   }
 }
 
-// Helper: Format date to YYYY-MM-DD
+// Helper: Format date
 function formatDate(date) {
   return date.toISOString().split('T')[0];
 }
